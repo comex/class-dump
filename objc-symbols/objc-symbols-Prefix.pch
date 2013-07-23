@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'objc-symbols' target in the 'objc-symbols' project
+//
+
+#ifdef __OBJC__
+	#import <Foundation/Foundation.h>
+#endif

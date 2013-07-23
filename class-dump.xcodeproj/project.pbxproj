@@ -134,6 +134,10 @@
 		01B02D2D13A5B57E0047BC53 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 013D1F0B13A5ADC300BF0A67 /* libcrypto.dylib */; };
 		01B02D3A13A5B72B0047BC53 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 013D1F0B13A5ADC300BF0A67 /* libcrypto.dylib */; };
 		01EB826413A590D9003EDE60 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 01EB826313A590D9003EDE60 /* Foundation.framework */; };
+		C21E242E179E8CB3005B34DE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 01EB826313A590D9003EDE60 /* Foundation.framework */; };
+		C21E2431179E8CB3005B34DE /* objc-symbols.m in Sources */ = {isa = PBXBuildFile; fileRef = C21E2430179E8CB3005B34DE /* objc-symbols.m */; };
+		C21E2439179E919A005B34DE /* libMachObjC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 013D1F1113A5AE5A00BF0A67 /* libMachObjC.a */; };
+		C21E243A179E91A6005B34DE /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 013D1F0B13A5ADC300BF0A67 /* libcrypto.dylib */; };
 		DA7533B213AA587A003BE32C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 01EB826313A590D9003EDE60 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
@@ -418,6 +422,9 @@
 		01EB831E13A591D8003EDE60 /* CDVisitor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = CDVisitor.m; path = Source/CDVisitor.m; sourceTree = SOURCE_ROOT; };
 		01EB831F13A591D8003EDE60 /* CDVisitorPropertyState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CDVisitorPropertyState.h; path = Source/CDVisitorPropertyState.h; sourceTree = SOURCE_ROOT; };
 		01EB832013A591D8003EDE60 /* CDVisitorPropertyState.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = CDVisitorPropertyState.m; path = Source/CDVisitorPropertyState.m; sourceTree = SOURCE_ROOT; };
+		C21E242D179E8CB3005B34DE /* objc-symbols */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "objc-symbols"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C21E2430179E8CB3005B34DE /* objc-symbols.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "objc-symbols.m"; sourceTree = "<group>"; };
+		C21E2433179E8CB3005B34DE /* objc-symbols-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "objc-symbols-Prefix.pch"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -468,6 +475,16 @@
 				01B02D2C13A5B4FE0047BC53 /* libcrypto.dylib in Frameworks */,
 				013D1F5A13A5AF6500BF0A67 /* libMachObjC.a in Frameworks */,
 				01EB826413A590D9003EDE60 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C21E242A179E8CB3005B34DE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C21E242E179E8CB3005B34DE /* Foundation.framework in Frameworks */,
+				C21E243A179E91A6005B34DE /* libcrypto.dylib in Frameworks */,
+				C21E2439179E919A005B34DE /* libMachObjC.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -602,6 +619,7 @@
 				01EB826513A590D9003EDE60 /* class-dump */,
 				013D1EFE13A5A0F100BF0A67 /* deprotect */,
 				01B02D0213A5B0DC0047BC53 /* formatType */,
+				C21E242F179E8CB3005B34DE /* objc-symbols */,
 				011E48471604DF3700722F8D /* UnitTests */,
 				01EB826213A590D9003EDE60 /* Frameworks */,
 				01EB826013A590D9003EDE60 /* Products */,
@@ -616,6 +634,7 @@
 				013D1F1113A5AE5A00BF0A67 /* libMachObjC.a */,
 				01B02CFF13A5B0DC0047BC53 /* formatType */,
 				011E483E1604DF3700722F8D /* UnitTests.octest */,
+				C21E242D179E8CB3005B34DE /* objc-symbols */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -834,6 +853,15 @@
 			name = "Type Parsing/Lexing";
 			sourceTree = "<group>";
 		};
+		C21E242F179E8CB3005B34DE /* objc-symbols */ = {
+			isa = PBXGroup;
+			children = (
+				C21E2433179E8CB3005B34DE /* objc-symbols-Prefix.pch */,
+				C21E2430179E8CB3005B34DE /* objc-symbols.m */,
+			);
+			path = "objc-symbols";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -942,6 +970,22 @@
 			productReference = 01EB825F13A590D9003EDE60 /* class-dump */;
 			productType = "com.apple.product-type.tool";
 		};
+		C21E242C179E8CB3005B34DE /* objc-symbols */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C21E2438179E8CB3005B34DE /* Build configuration list for PBXNativeTarget "objc-symbols" */;
+			buildPhases = (
+				C21E2429179E8CB3005B34DE /* Sources */,
+				C21E242A179E8CB3005B34DE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "objc-symbols";
+			productName = "objc-symbols";
+			productReference = C21E242D179E8CB3005B34DE /* objc-symbols */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -967,6 +1011,7 @@
 				01EB825E13A590D9003EDE60 /* class-dump */,
 				013D1EFA13A5A0F100BF0A67 /* deprotect */,
 				01B02CFE13A5B0DC0047BC53 /* formatType */,
+				C21E242C179E8CB3005B34DE /* objc-symbols */,
 				011E483D1604DF3700722F8D /* UnitTests */,
 			);
 		};
@@ -1121,6 +1166,14 @@
 				01B02D2A13A5B4D70047BC53 /* CDTextClassDumpVisitor.m in Sources */,
 				01B02D2B13A5B4D70047BC53 /* CDSearchPathState.m in Sources */,
 				01B02D1113A5B1460047BC53 /* class-dump.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C21E2429179E8CB3005B34DE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C21E2431179E8CB3005B34DE /* objc-symbols.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1447,6 +1500,46 @@
 			};
 			name = Release;
 		};
+		C21E2436179E8CB3005B34DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "objc-symbols/objc-symbols-Prefix.pch";
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		C21E2437179E8CB3005B34DE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "objc-symbols/objc-symbols-Prefix.pch";
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1509,6 +1602,15 @@
 			buildConfigurations = (
 				01EB826F13A590D9003EDE60 /* Debug */,
 				01EB827013A590D9003EDE60 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C21E2438179E8CB3005B34DE /* Build configuration list for PBXNativeTarget "objc-symbols" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C21E2436179E8CB3005B34DE /* Debug */,
+				C21E2437179E8CB3005B34DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
