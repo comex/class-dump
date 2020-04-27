@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDSymbol.h"
 
@@ -77,12 +77,20 @@ NSString *const ObjCClassSymbolPrefix = @"_OBJC_CLASS_$_";
 
 #pragma mark -
 
++ (NSString *)classNameFromSymbolName:(NSString *)symbolName;
+{
+    if ([symbolName hasPrefix:ObjCClassSymbolPrefix])
+        return [symbolName substringFromIndex:[ObjCClassSymbolPrefix length]];
+    else
+        return nil;
+}
+
 - (uint64_t)value;
 {
     return _nlist.n_value;
 }
 
-- (CDSection *)section
+- (CDSection *)section;
 {
     // We might be tempted to do [[self.machOFile segmentContainingAddress:nlist.n_value] sectionContainingAddress:nlist.n_value]
     // but this does not work for __mh_dylib_header for example (n_value == 0, but it is in the __TEXT,__text section)
@@ -103,12 +111,7 @@ NSString *const ObjCClassSymbolPrefix = @"_OBJC_CLASS_$_";
 - (CDLCDylib *)dylibLoadCommand;
 {
     NSUInteger libraryOrdinal = GET_LIBRARY_ORDINAL(_nlist.n_desc);
-    NSArray *dylibLoadCommands = self.machOFile.dylibLoadCommands;
-
-    if (libraryOrdinal < [dylibLoadCommands count])
-        return dylibLoadCommands[libraryOrdinal];
-    else
-        return nil;
+    return [self.machOFile dylibLoadCommandForLibraryOrdinal:libraryOrdinal];
 }
 
 - (BOOL)isExternal;

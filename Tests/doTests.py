@@ -48,8 +48,8 @@ TESTDIR_NEW = TESTDIR + "/new"
 TESTDIR_NEW_32 = TESTDIR + "/new32"
 TESTDIR_NEW_64 = TESTDIR + "/new64"
 
-#OLD_CD = os.path.expanduser("~/Unix/bin/class-dump-3.3.4")
-OLD_CD = os.path.expanduser("~/Unix/bin/class-dump-e9c13d1")
+OLD_CD = os.path.expanduser("~/Unix/bin/class-dump-3.5")
+#OLD_CD = os.path.expanduser("~/Unix/bin/class-dump-e9c13d1")
 #OLD_CD = "/bin/echo"
 NEW_CD = os.path.expanduser("/Local/nygard/Debug/class-dump")
 
@@ -193,6 +193,8 @@ def main(argv):
     for pattern in sdict["bundles"]:
         bundles.extend(glob.glob(pattern))
 
+    apps = [app for app in apps if not os.path.basename(app).startswith("Hopper")]
+
     print "  Framework count:", len(frameworks)
     print "Application count:", len(apps)
     print "     Bundle count:", len(bundles)
@@ -253,7 +255,7 @@ def main(argv):
             out.close
 
     print "Ended tests at", datetime.today().ctime()
-    Popen("opendiff %s %s" % (TESTDIR_OLD, TESTDIR_NEW), shell=True)
+    Popen("ksdiff %s %s" % (TESTDIR_OLD, TESTDIR_NEW), shell=True)
 
 #----------------------------------------------------------------------
 #

@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDOCClass.h"
 
@@ -13,21 +13,18 @@
 #import "CDTypeParser.h"
 #import "CDVisitor.h"
 #import "CDVisitorPropertyState.h"
+#import "CDOCClassReference.h"
 
 @implementation CDOCClass
 {
-    NSString *_superClassName;
     NSArray *_instanceVariables;
-    
+
     BOOL _isExported;
 }
 
 - (id)init;
 {
     if ((self = [super init])) {
-        _superClassName = nil;
-        _instanceVariables = nil;
-        
         _isExported = YES;
     }
 
@@ -42,6 +39,11 @@
 }
 
 #pragma mark -
+
+- (NSString *)superClassName;
+{
+    return [_superClassRef className];
+}
 
 - (void)registerTypesWithObject:(CDTypeController *)typeController phase:(NSUInteger)phase;
 {

@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDTypeParser.h"
 
@@ -204,7 +204,8 @@ static NSString *CDTokenDescription(int token)
         || _lookahead == 'o'
         || _lookahead == 'O'
         || _lookahead == 'R'
-        || _lookahead == 'V') { // modifiers
+        || _lookahead == 'V'
+        || _lookahead == 'A') { // modifiers
         int modifier = _lookahead;
         [self match:modifier];
 
@@ -222,6 +223,9 @@ static NSString *CDTokenDescription(int token)
             type = [[CDType alloc] initSimpleType:'v'];
             // Safari on 10.5 has: "m_function"{?="__pfn"^"__delta"i}
             result = [[CDType alloc] initPointerType:type];
+        } else if (_lookahead == '?') {
+            [self match:'?'];
+            result = [[CDType alloc] initFunctionPointerType];
         } else {
             type = [self _parseTypeInStruct:isInStruct];
             result = [[CDType alloc] initPointerType:type];
@@ -242,9 +246,21 @@ static NSString *CDTokenDescription(int token)
 #endif
         if (_lookahead == TK_QUOTED_STRING && (isInStruct == NO || [self.lexer.lexText isFirstLetterUppercase] || [self isTokenInTypeStartSet:self.lexer.peekChar] == NO)) {
             NSString *str = self.lexer.lexText;
-            if ([str hasPrefix:@"<"] && [str hasSuffix:@">"]) {
-                str = [str substringWithRange:NSMakeRange(1, [str length] - 2)];
-                result = [[CDType alloc] initIDTypeWithProtocols:[str componentsSeparatedByString:@","]];
+            
+            NSUInteger protocolOpenIdx = NSMaxRange([str rangeOfString:@"<"]);
+            NSUInteger protocolCloseIdx = [str rangeOfString:@">" options:NSBackwardsSearch].location;
+            if (protocolOpenIdx != NSNotFound && protocolCloseIdx != NSNotFound) {
+                NSRange protocolRange = NSMakeRange(protocolOpenIdx, protocolCloseIdx - protocolOpenIdx);
+                NSArray *protocols = [[str substringWithRange:protocolRange] componentsSeparatedByString:@","];
+                
+                NSString *typeNameStr = [[str substringToIndex:(protocolOpenIdx - 1)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                CDTypeName *typeName = nil;
+                if ([typeNameStr length] && ![typeNameStr isEqualToString:@"id"]) {
+                    typeName = [[CDTypeName alloc] init];
+                    typeName.name = typeNameStr;
+                }
+                
+                result = [[CDType alloc] initIDType:typeName withProtocols:protocols];
             } else {
                 CDTypeName *typeName = [[CDTypeName alloc] init];
                 typeName.name = str;
@@ -252,6 +268,15 @@ static NSString *CDTokenDescription(int token)
             }
 
             [self match:TK_QUOTED_STRING];
+        } else if (_lookahead == '?') {
+            [self match:'?'];
+            NSArray *blockTypes = nil;
+            if (_lookahead == '<') {
+                [self match:'<'];
+                blockTypes = [[self _parseMethodType] valueForKeyPath:@"type"];
+                [self match:'>'];
+            }
+            result = [[CDType alloc] initBlockTypeWithTypes:blockTypes];
         } else {
             result = [[CDType alloc] initIDType:nil];
         }
@@ -290,8 +315,11 @@ static NSString *CDTokenDescription(int token)
         [self match:simpleType];
         result = [[CDType alloc] initSimpleType:simpleType];
     } else {
-        result = nil;
-        [NSException raise:CDExceptionName_SyntaxError format:@"expected (many things), got %@", CDTokenDescription(_lookahead)];
+        CDTypeName *typeName = [[CDTypeName alloc] init];
+        typeName.name = @"MISSING_TYPE";
+        result = [[CDType alloc] initIDType:typeName];
+//        result = nil;
+//        [NSException raise:CDExceptionName_SyntaxError format:@"expected (many things), got %@", CDTokenDescription(_lookahead)];
     }
 
     return result;
@@ -436,7 +464,8 @@ static NSString *CDTokenDescription(int token)
         || token == 'o'
         || token == 'O'
         || token == 'R'
-        || token == 'V')
+        || token == 'V'
+        || token == 'A')
         return YES;
 
     return NO;
@@ -493,6 +522,7 @@ static NSString *CDTokenDescription(int token)
         || token == 'O'
         || token == 'R'
         || token == 'V'
+        || token == 'A'
         || token == '^'
         || token == 'b'
         || token == '@'

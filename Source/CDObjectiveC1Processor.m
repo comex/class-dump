@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDObjectiveC1Processor.h"
 
@@ -17,11 +17,9 @@
 #import "CDOCModule.h"
 #import "CDOCProtocol.h"
 #import "CDOCSymtab.h"
-#import "CDSection32.h"
-#import "CDLCSegment32.h"
 #import "CDVisitor.h"
 #import "CDProtocolUniquer.h"
-
+#import "CDOCClassReference.h"
 
 #import "CDSection.h"
 #import "CDLCSegment.h"
@@ -260,7 +258,9 @@ static BOOL debug = NO;
 
     CDOCClass *aClass = [[CDOCClass alloc] init];
     aClass.name           = className;
-    aClass.superClassName = [self.machOFile stringAtAddress:objcClass.super_class];
+    
+    // TODO: can we extract more than just the string from here?
+    aClass.superClassRef  = [[CDOCClassReference alloc] initWithClassName:[self.machOFile stringAtAddress:objcClass.super_class]];
 
     // Process ivars
     if (objcClass.ivars != 0) {
@@ -422,7 +422,9 @@ static BOOL debug = NO;
 
         category = [[CDOCCategory alloc] init];
         category.name = name;
-        category.className = [self.machOFile stringAtAddress:objcCategory.class_name];
+        
+        // TODO: can we extract more than just the string from here?
+        category.classRef = [[CDOCClassReference alloc] initWithClassName:[self.machOFile stringAtAddress:objcCategory.class_name]];
 
         for (CDOCMethod *method in [self processMethodsAtAddress:objcCategory.methods])
             [category addInstanceMethod:method];

@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDTypeFormatter.h"
 
@@ -270,6 +270,11 @@ static BOOL debug = NO;
 - (void)formattingDidReferenceClassName:(NSString *)name;
 {
     [self.typeController typeFormatter:self didReferenceClassName:name];
+}
+
+- (void)formattingDidReferenceProtocolNames:(NSArray *)names;
+{
+    [self.typeController typeFormatter:self didReferenceProtocolNames:names];
 }
 
 @end

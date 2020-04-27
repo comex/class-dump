@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #include <stdio.h>
 #include <libc.h>
@@ -16,7 +16,6 @@
 #import "CDFatFile.h"
 #import "CDLoadCommand.h"
 #import "CDLCSegment.h"
-#import "CDLCSegment64.h"
 
 void print_usage(void)
 {
@@ -25,7 +24,7 @@ void print_usage(void)
             "Usage: deprotect [options] <input file> <output file>\n"
             "\n"
             "  where options are:\n"
-            "        --arch <arch>  choose a specific architecture from a universal binary (ppc, ppc64, i386, x86_64, armv6, armv7, armv7s)\n"
+            "        --arch <arch>  choose a specific architecture from a universal binary (ppc, ppc64, i386, x86_64, armv6, armv7, armv7s, arm64)\n"
             ,
             CLASS_DUMP_VERSION
        );
@@ -48,7 +47,7 @@ BOOL saveDeprotectedFileToPath(CDMachOFile *file, NSString *path)
                 NSCParameterAssert([decryptedData length] == segmentRange.length);
                 
                 [mdata replaceBytesInRange:segmentRange withBytes:[decryptedData bytes]];
-                if ([segment isKindOfClass:[CDLCSegment64 class]]) {
+                if (segment.machOFile.uses64BitABI) {
                     flagOffset = [segment commandOffset] + offsetof(struct segment_command_64, flags);
                 } else {
                     flagOffset = [segment commandOffset] + offsetof(struct segment_command, flags);

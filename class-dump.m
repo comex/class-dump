@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #include <stdio.h>
 #include <libc.h>
@@ -29,7 +29,7 @@ void print_usage(void)
             "  where options are:\n"
             "        -a             show instance variable offsets\n"
             "        -A             show implementation addresses\n"
-            "        --arch <arch>  choose a specific architecture from a universal binary (ppc, ppc64, i386, x86_64, armv6, armv7, armv7s)\n"
+            "        --arch <arch>  choose a specific architecture from a universal binary (ppc, ppc64, i386, x86_64, armv6, armv7, armv7s, arm64)\n"
             "        -C <regex>     only display classes matching regular expression\n"
             "        -f <str>       find string in method name\n"
             "        -H             generate header files in current directory, or directory specified with -o\n"
@@ -40,8 +40,10 @@ void print_usage(void)
             "        -S             sort methods by name\n"
             "        -t             suppress header in output, for testing\n"
             "        --list-arches  list the arches in the file, then exit\n"
-            "        --sdk-ios      specify iOS SDK version (will look in /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS<version>.sdk\n"
-            "        --sdk-mac      specify Mac OS X version (will look in /Developer/SDKs/MacOSX<version>.sdk\n"
+            "        --sdk-ios      specify iOS SDK version (will look for /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS<version>.sdk\n"
+            "                       or /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS<version>.sdk)\n"
+            "        --sdk-mac      specify Mac OS X version (will look for /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX<version>.sdk\n"
+            "                       or /Developer/SDKs/MacOSX<version>.sdk)\n"
             "        --sdk-root     specify the full SDK root path (or use --sdk-ios/--sdk-mac for a shortcut)\n"
             ,
             CLASS_DUMP_VERSION
@@ -125,7 +127,12 @@ int main(int argc, char *argv[])
                 case CD_OPT_SDK_IOS: {
                     NSString *root = [NSString stringWithUTF8String:optarg];
                     //NSLog(@"root: %@", root);
-                    NSString *str = [NSString stringWithFormat:@"/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS%@.sdk", root];
+                    NSString *str;
+                    if ([[NSFileManager defaultManager] fileExistsAtPath: @"/Applications/Xcode.app"]) {
+                        str = [NSString stringWithFormat:@"/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS%@.sdk", root];
+                    } else if ([[NSFileManager defaultManager] fileExistsAtPath: @"/Developer"]) {
+                        str = [NSString stringWithFormat:@"/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS%@.sdk", root];
+                    }
                     classDump.sdkRoot = str;
                     
                     break;
@@ -134,7 +141,12 @@ int main(int argc, char *argv[])
                 case CD_OPT_SDK_MAC: {
                     NSString *root = [NSString stringWithUTF8String:optarg];
                     //NSLog(@"root: %@", root);
-                    NSString *str = [NSString stringWithFormat:@"/Developer/SDKs/MacOSX%@.sdk", root];
+                    NSString *str;
+                    if ([[NSFileManager defaultManager] fileExistsAtPath: @"/Applications/Xcode.app"]) {
+                        str = [NSString stringWithFormat:@"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX%@.sdk", root];
+                    } else if ([[NSFileManager defaultManager] fileExistsAtPath: @"/Developer"]) {
+                        str = [NSString stringWithFormat:@"/Developer/SDKs/MacOSX%@.sdk", root];
+                    }
                     classDump.sdkRoot = str;
                     
                     break;
@@ -319,7 +331,6 @@ int main(int argc, char *argv[])
                 }
             }
         }
+        exit(0); // avoid costly autorelease pool drain, we’re exiting anyway
     }
-
-    return 0;
 }

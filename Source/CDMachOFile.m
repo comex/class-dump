@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDMachOFile.h"
 
@@ -18,7 +18,6 @@
 #import "CDLCEncryptionInfo.h"
 #import "CDLCRunPath.h"
 #import "CDLCSegment.h"
-#import "CDLCSegment64.h"
 #import "CDLCSymbolTable.h"
 #import "CDLCUUID.h"
 #import "CDLCVersionMinimum.h"
@@ -29,6 +28,7 @@
 #import "CDRelocationInfo.h"
 #import "CDSearchPathState.h"
 #import "CDLCSourceVersion.h"
+#import "CDLCBuildVersion.h"
 
 static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
 {
@@ -56,6 +56,7 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
     CDLCVersionMinimum *_minVersionMacOSX;
     CDLCVersionMinimum *_minVersionIOS;
     CDLCSourceVersion *_sourceVersion;
+    CDLCBuildVersion *_buildVersion;
     NSArray *_runPaths;
     NSArray *_runPathCommands;
     NSArray *_dyldEnvironment;
@@ -154,6 +155,7 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
             if (loadCommand.cmd == LC_ID_DYLIB)                                  self.dylibIdentifier = (CDLCDylib *)loadCommand;
 
             if ([loadCommand isKindOfClass:[CDLCSourceVersion class]])           self.sourceVersion = (CDLCSourceVersion *)loadCommand;
+            else if ([loadCommand isKindOfClass:[CDLCBuildVersion class]])       self.buildVersion = (CDLCBuildVersion *)loadCommand;
             else if ([loadCommand isKindOfClass:[CDLCDylib class]])              [dylibLoadCommands addObject:loadCommand];
             else if ([loadCommand isKindOfClass:[CDLCSegment class]])            [segments addObject:loadCommand];
             else if ([loadCommand isKindOfClass:[CDLCSymbolTable class]])        self.symbolTable = (CDLCSymbolTable *)loadCommand;
@@ -280,6 +282,19 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
 
 #pragma mark -
 
+- (CDLCSegment *)dataConstSegment
+{
+    // macho objects from iOS 9 appear to store various sections
+    // in __DATA_CONST that were previously found in __DATA
+    CDLCSegment *seg = [self segmentWithName:@"__DATA_CONST"];
+
+    // Fall back on __DATA if it is not found for earlier behavior
+    if (!seg) {
+        seg = [self segmentWithName:@"__DATA"];
+    }
+    return seg;
+}
+
 - (CDLCSegment *)segmentWithName:(NSString *)segmentName;
 {
     for (id loadCommand in _loadCommands) {
@@ -351,10 +366,10 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
         exit(5);
     }
 
-    if ([segment isProtected]) {
-        NSLog(@"Error: Segment is protected.");
-        exit(5);
-    }
+//    if ([segment isProtected]) {
+//        NSLog(@"Error: Segment is protected.");
+//        exit(5);
+//    }
 
 #if 0
     NSLog(@"---------->");
@@ -381,13 +396,7 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
 - (NSString *)importBaseName;
 {
     if ([self filetype] == MH_DYLIB) {
-        NSString *str = [self.filename lastPathComponent];
-        if ([str hasPrefix:@"lib"]) {
-            NSArray *components = [[str substringFromIndex:3] componentsSeparatedByString:@"."];
-            str = components[0];
-        }
-
-        return str;
+        return CDImportNameForPath(self.filename);
     }
 
     return nil;
@@ -458,13 +467,13 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
     return resultString;
 }
 
-- (NSString *)uuidString;
+- (NSUUID *)UUID;
 {
     for (CDLoadCommand *loadCommand in _loadCommands)
         if ([loadCommand isKindOfClass:[CDLCUUID class]])
-            return [(CDLCUUID *)loadCommand uuidString];
+            return [(CDLCUUID *)loadCommand UUID];
 
-    return @"N/A";
+    return nil;
 }
 
 // Must not return nil.
@@ -565,7 +574,7 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
     // 0xced: @gparker I was hoping for a flag, but that will do it, thanks.
     // 0xced: @gparker Did you mean __DATA,__objc_imageinfo instead of __DATA,__objc_info ?
     // gparker: @0xced Yes, it's __DATA,__objc_imageinfo.
-    return [[self segmentWithName:@"__DATA"] sectionWithName:@"__objc_imageinfo"] != nil;
+    return [[self dataConstSegment] sectionWithName:@"__objc_imageinfo"] != nil;
 }
 
 - (Class)processorClass;
@@ -574,6 +583,25 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
         return [CDObjectiveC2Processor class];
     
     return [CDObjectiveC1Processor class];
+}
+
+- (CDLCDylib *)dylibLoadCommandForLibraryOrdinal:(NSUInteger)libraryOrdinal;
+{
+    if (libraryOrdinal == SELF_LIBRARY_ORDINAL || libraryOrdinal >= MAX_LIBRARY_ORDINAL)
+        return nil;
+    
+    NSArray *loadCommands = _dylibLoadCommands;
+    if (_dylibIdentifier != nil) {
+        // Remove our own ID (LC_ID_DYLIB) so that we calculate the correct offset
+        NSMutableArray *remainingLoadCommands = [loadCommands mutableCopy];
+        [remainingLoadCommands removeObject:_dylibIdentifier];
+        loadCommands = remainingLoadCommands;
+    }
+    
+    if (libraryOrdinal - 1 < [loadCommands count]) // Ordinals start from 1
+        return loadCommands[libraryOrdinal - 1];
+    else
+        return nil;
 }
 
 - (NSString *)architectureNameDescription;

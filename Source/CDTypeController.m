@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDTypeController.h"
 
@@ -133,10 +133,32 @@ static BOOL debug = NO;
         [self.delegate typeController:self didReferenceClassName:name];
 }
 
+- (void)typeFormatter:(CDTypeFormatter *)typeFormatter didReferenceProtocolNames:(NSArray *)names;
+{
+    if ([self.delegate respondsToSelector:@selector(typeController:didReferenceProtocolNames:)])
+        [self.delegate typeController:self didReferenceProtocolNames:names];
+}
+
 #pragma mark -
 
 - (void)appendStructuresToString:(NSMutableString *)resultString;
 {
+    if (self.hasUnknownFunctionPointers && self.hasUnknownBlocks) {
+        [resultString appendString:@"#pragma mark Function Pointers and Blocks\n\n"];
+    } else if (self.hasUnknownFunctionPointers) {
+        [resultString appendString:@"#pragma mark Function Pointers\n\n"];
+    } else if (self.hasUnknownBlocks) {
+        [resultString appendString:@"#pragma mark Blocks\n\n"];
+    }
+    
+    if (self.hasUnknownFunctionPointers) {
+        [resultString appendFormat:@"typedef void (*CDUnknownFunctionPointerType)(void); // return type and parameters are unknown\n\n"];
+    }
+    
+    if (self.hasUnknownBlocks) {
+        [resultString appendFormat:@"typedef void (^CDUnknownBlockType)(void); // return type and parameters are unknown\n\n"];
+    }
+    
     [self.structureTable appendNamedStructuresToString:resultString formatter:self.structDeclarationTypeFormatter markName:@"Named Structures"];
     [self.structureTable appendTypedefsToString:resultString        formatter:self.structDeclarationTypeFormatter markName:@"Typedef'd Structures"];
 

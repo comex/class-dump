@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDFile.h"
 
@@ -9,6 +9,23 @@
 #import "CDFatFile.h"
 #import "CDMachOFile.h"
 #import "CDSearchPathState.h"
+
+NSString *CDImportNameForPath(NSString *path)
+{
+    NSString *name = [path lastPathComponent];
+    
+    // Remove all extensions (make sure extensions like .a.dylib are covered)
+    NSString *nameWithExtensions = name;
+    for (NSInteger i = ([nameWithExtensions length] - 1); i >= 0; i--) {
+        if ([nameWithExtensions characterAtIndex:i] == '.')
+            name = [name substringToIndex:i];
+    }
+    
+    NSString *libPrefix = @"lib";
+    if ([name hasPrefix:libPrefix])
+        name = [name substringFromIndex:[libPrefix length]];
+    return name;
+}
 
 NSString *CDNameForCPUType(cpu_type_t cputype, cpu_subtype_t cpusubtype)
 {
@@ -20,7 +37,13 @@ NSString *CDNameForCPUType(cpu_type_t cputype, cpu_subtype_t cpusubtype)
     switch (cputype) {
         case CPU_TYPE_ARM: {
             switch (cpusubtype) {
-                case 11: return @"armv7s"; // Not recognized in 10.8.0
+                case 11: return @"armv7s"; // Not recognized in 10.8.4
+            }
+            break;
+        }
+        case CPU_TYPE_ARM | CPU_ARCH_ABI64: {
+            switch (cpusubtype) {
+                case CPU_SUBTYPE_ARM_ALL: return @"arm64"; // Not recognized in 10.8.4
             }
             break;
         }
@@ -43,9 +66,12 @@ CDArch CDArchFromName(NSString *name)
 
     const NXArchInfo *archInfo = NXGetArchInfoFromName([name UTF8String]);
     if (archInfo == NULL) {
-        if ([name isEqualToString:@"armv7s"]) { // Not recognized in 10.8.0
+        if ([name isEqualToString:@"armv7s"]) { // Not recognized in 10.8.4
             arch.cputype    = CPU_TYPE_ARM;
             arch.cpusubtype = 11;
+        } else if ([name isEqualToString:@"arm64"]) { // Not recognized in 10.8.4
+            arch.cputype    = CPU_TYPE_ARM | CPU_ARCH_ABI64;
+            arch.cpusubtype = CPU_SUBTYPE_ARM_ALL;
         } else {
             NSString *ignore;
             

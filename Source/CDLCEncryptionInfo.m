@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDLCEncryptionInfo.h"
 
@@ -9,7 +9,7 @@
 
 @implementation CDLCEncryptionInfo
 {
-    struct encryption_info_command _encryptionInfoCommand;
+    struct encryption_info_command_64 _encryptionInfoCommand;
 }
 
 - (id)initWithDataCursor:(CDMachOFileDataCursor *)cursor;
@@ -21,6 +21,9 @@
         _encryptionInfoCommand.cryptoff  = [cursor readInt32];
         _encryptionInfoCommand.cryptsize = [cursor readInt32];
         _encryptionInfoCommand.cryptid   = [cursor readInt32];
+        if (_encryptionInfoCommand.cmd == LC_ENCRYPTION_INFO_64) {
+            _encryptionInfoCommand.pad = [cursor readInt32];
+        }
     }
 
     return self;

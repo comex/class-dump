@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDTypeName.h"
 
@@ -53,8 +53,9 @@
 
 - (NSString *)description;
 {
-    if ([self.templateTypes count] == 0)
-        return self.name;
+    if ([self.templateTypes count] == 0) {
+        return self.name ? self.name : @"";
+    }
     
     if (self.suffix != nil)
         return [NSString stringWithFormat:@"%@<%@>%@", self.name, [self.templateTypes componentsJoinedByString:@", "], self.suffix];

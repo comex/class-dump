@@ -1,14 +1,38 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDLCSegment.h"
 
 #import "CDMachOFile.h"
 #import "CDSection.h"
-#include <openssl/aes.h>
-#include <openssl/blowfish.h>
+
+#include <CommonCrypto/CommonCrypto.h>
+#include "blowfish.h"
+
+// Decrypt PAGE_SIZE (4096) bytes
+static void BF_Decrypt_Block(BLOWFISH_CTX *ctx, const uint8_t *ptr, uint8_t *dest)
+{
+    uint32_t left, right;
+    uint32_t src_offset = 0, dest_offset = 0;
+    uint32_t previous_left = 0, previous_right = 0;
+    for (NSUInteger index = 0; index < PAGE_SIZE / 8; index++) {
+        left  = OSReadBigInt32(ptr, src_offset); src_offset += sizeof(uint32_t);
+        right = OSReadBigInt32(ptr, src_offset); src_offset += sizeof(uint32_t);
+
+        uint32_t left2 = left;
+        uint32_t right2 = right;
+        Blowfish_Decrypt(ctx, &left2, &right2);
+        left2 ^= previous_left;
+        right2 ^= previous_right;
+        previous_left = left;
+        previous_right = right;
+
+        OSWriteBigInt32(dest, dest_offset, left2);  dest_offset += sizeof(uint32_t);
+        OSWriteBigInt32(dest, dest_offset, right2); dest_offset += sizeof(uint32_t);
+    }
+}
 
 NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
 {
@@ -22,6 +46,8 @@ NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
 
 @implementation CDLCSegment
 {
+    struct segment_command_64 _segmentCommand; // 64-bit, also holding 32-bit
+    
     NSString *_name;
     NSArray *_sections;
     
@@ -31,9 +57,27 @@ NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
 - (id)initWithDataCursor:(CDMachOFileDataCursor *)cursor;
 {
     if ((self = [super initWithDataCursor:cursor])) {
-        _name = nil;
-        _sections = nil;
-        _decryptedData = nil;
+        _segmentCommand.cmd     = [cursor readInt32];
+        _segmentCommand.cmdsize = [cursor readInt32];
+        
+        _name = [cursor readStringOfLength:16 encoding:NSASCIIStringEncoding];
+        size_t nameLength = [_name lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+        memcpy(_segmentCommand.segname, [_name UTF8String], MIN(sizeof(_segmentCommand.segname), nameLength));
+        _segmentCommand.vmaddr   = [cursor readPtr];
+        _segmentCommand.vmsize   = [cursor readPtr];
+        _segmentCommand.fileoff  = [cursor readPtr];
+        _segmentCommand.filesize = [cursor readPtr];
+        _segmentCommand.maxprot  = [cursor readInt32];
+        _segmentCommand.initprot = [cursor readInt32];
+        _segmentCommand.nsects   = [cursor readInt32];
+        _segmentCommand.flags    = [cursor readInt32];
+        
+        NSMutableArray *sections = [[NSMutableArray alloc] init];
+        for (NSUInteger index = 0; index < _segmentCommand.nsects; index++) {
+            CDSection *section = [[CDSection alloc] initWithDataCursor:cursor segment:self];
+            [sections addObject:section];
+        }
+        _sections = [sections copy];
     }
 
     return self;
@@ -41,57 +85,49 @@ NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
 
 #pragma mark - Debugging
 
-- (NSString *)description;
-{
-    NSString *extra = [self extraDescription];
-    
-    if (extra == nil) {
-        return [NSString stringWithFormat:@"<%@:%p> name: %@",
-                NSStringFromClass([self class]), self,
-                self.name];
-    }
-    
-    return [NSString stringWithFormat:@"<%@:%p> name: %@, %@",
-            NSStringFromClass([self class]), self,
-            self.name, extra];
-}
-
 - (NSString *)extraDescription;
 {
-    // Implement in subclasses
-    return nil;
+    int padding = (int)self.machOFile.ptrSize * 2;
+    return [NSString stringWithFormat:@"vmaddr: 0x%0*llx - 0x%0*llx [0x%0*llx], offset: %lld, flags: 0x%x (%@), nsects: %d, sections: %@",
+            padding, _segmentCommand.vmaddr, padding, _segmentCommand.vmaddr + _segmentCommand.vmsize - 1, padding, _segmentCommand.vmsize,
+            _segmentCommand.fileoff, self.flags, [self flagDescription], _segmentCommand.nsects, self.sections.count > 0 ? self.sections : @"N/A"];
 }
 
 #pragma mark -
 
+- (uint32_t)cmd;
+{
+    return _segmentCommand.cmd;
+}
+
+- (uint32_t)cmdsize;
+{
+    return _segmentCommand.cmdsize;
+}
+
 - (NSUInteger)vmaddr;
 {
-    // Implement in subclasses.
-    return 0;
+    return _segmentCommand.vmaddr;
 }
 
 - (NSUInteger)fileoff;
 {
-    // Implement in subclasses.
-    return 0;
+    return _segmentCommand.fileoff;
 }
 
 - (NSUInteger)filesize;
 {
-    // Implement in subclasses.
-    return 0;
+    return _segmentCommand.filesize;
 }
 
 - (vm_prot_t)initprot;
 {
-    // Implement in subclsses.
-    return 0;
+    return _segmentCommand.initprot;
 }
 
 - (uint32_t)flags;
 {
-    // Implement in subclsses.
-    return 0;
+    return _segmentCommand.flags;
 }
 
 - (BOOL)isProtected;
@@ -143,15 +179,14 @@ NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
     if (flags & SG_PROTECTED_VERSION_1) [setFlags addObject:@"PROTECTED_VERSION_1"];
 
     if ([setFlags count] == 0)
-        return @"(none)";
+        return @"none";
 
     return [setFlags componentsJoinedByString:@" "];
 }
 
 - (BOOL)containsAddress:(NSUInteger)address;
 {
-    // Implement in subclasses
-    return NO;
+    return (address >= _segmentCommand.vmaddr) && (address < _segmentCommand.vmaddr + _segmentCommand.vmsize);
 }
 
 - (CDSection *)sectionContainingAddress:(NSUInteger)address;
@@ -188,21 +223,21 @@ NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
 {
     [super appendToString:resultString verbose:isVerbose];
 #if 0
-    [resultString appendFormat:@"  segname %@\n",     self.name];
-    [resultString appendFormat:@"   vmaddr 0x%08x\n", segmentCommand.vmaddr];
-    [resultString appendFormat:@"   vmsize 0x%08x\n", segmentCommand.vmsize];
-    [resultString appendFormat:@"  fileoff %d\n",     segmentCommand.fileoff];
-    [resultString appendFormat:@" filesize %d\n",     segmentCommand.filesize];
-    [resultString appendFormat:@"  maxprot 0x%08x\n", segmentCommand.maxprot];
-    [resultString appendFormat:@" initprot 0x%08x\n", segmentCommand.initprot];
-    [resultString appendFormat:@"   nsects %d\n",     segmentCommand.nsects];
+    int padding = (int)self.machOFile.ptrSize * 2;
+    [resultString appendFormat:@"  segname %@\n",       self.name];
+    [resultString appendFormat:@"   vmaddr 0x%0*llx\n", padding, _segmentCommand.vmaddr];
+    [resultString appendFormat:@"   vmsize 0x%0*llx\n", padding, _segmentCommand.vmsize];
+    [resultString appendFormat:@"  fileoff %lld\n",     _segmentCommand.fileoff];
+    [resultString appendFormat:@" filesize %lld\n",     _segmentCommand.filesize];
+    [resultString appendFormat:@"  maxprot 0x%08x\n",   _segmentCommand.maxprot];
+    [resultString appendFormat:@" initprot 0x%08x\n",   _segmentCommand.initprot];
+    [resultString appendFormat:@"   nsects %d\n",       _segmentCommand.nsects];
 
     if (isVerbose)
         [resultString appendFormat:@"    flags %@\n", [self flagDescription]];
     else
-        [resultString appendFormat:@"    flags 0x%x\n", segmentCommand.flags];
+        [resultString appendFormat:@"    flags 0x%x\n", _segmentCommand.flags];
 #endif
-    // Implement in subclasses
 }
 
 - (void)writeSectionData;
@@ -233,59 +268,87 @@ NSString *CDSegmentEncryptionTypeName(CDSegmentEncryptionType type)
                                     0x65, 0x61, 0x73, 0x65, 0x64, 0x6f, 0x6e, 0x74, 0x73, 0x74, 0x65, 0x61, 0x6c, 0x28, 0x63, 0x29,
                                     0x41, 0x70, 0x70, 0x6c, 0x65, 0x43, 0x6f, 0x6d, 0x70, 0x75, 0x74, 0x65, 0x72, 0x49, 0x6e, 0x63, };
 
-            // First three pages are encrypted, just copy
+            // First three pages aren't encrypted, just copy
             memcpy(dest, src, PAGE_SIZE * 3);
             src += PAGE_SIZE * 3;
             dest += PAGE_SIZE * 3;
             NSUInteger count = (self.filesize / PAGE_SIZE) - 3;
             
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
             uint32_t magic = OSReadLittleInt32(src, 0);
             if (magic == CDSegmentProtectedMagic_None) {
                 memcpy(dest, src, [self filesize] - PAGE_SIZE * 3);
             } else if (magic == CDSegmentProtectedMagic_Blowfish) {
                 // 10.6 decryption
-                unsigned char ivec[8];
-                BF_KEY key;
-
-                BF_set_key(&key, 64, keyData);
-
+#if 0
+                // CommonCrypto 60026 (OS X 10.8) is first to include kCCKeySizeMaxBlowfish.
+                // CommonCrypto 60075.50.1 (OS X 10.11.5) is the first to check the keysize.
+                CCCryptorRef cryptor;
+                CCCryptorStatus status = CCCryptorCreate(kCCDecrypt, kCCAlgorithmBlowfish, 0, keyData, sizeof(keyData), NULL, &cryptor);
+                NSParameterAssert(status == kCCSuccess);
                 for (NSUInteger index = 0; index < count; index++) {
-                    memset(ivec, 0, 8);
-                    BF_cbc_encrypt(src, dest, PAGE_SIZE, &key, ivec, BF_DECRYPT);
+                    status = CCCryptorReset(cryptor, NULL);
+                    NSParameterAssert(status == kCCSuccess);
+
+                    size_t moved;
+                    status = CCCryptorUpdate(cryptor, src, PAGE_SIZE, dest, PAGE_SIZE, &moved);
+                    NSParameterAssert(status == kCCSuccess);
+                    NSParameterAssert(moved == PAGE_SIZE);
 
                     src += PAGE_SIZE;
                     dest += PAGE_SIZE;
                 }
+                CCCryptorRelease(cryptor);
+#else
+                // This uses a 64 byte keysize, which is too big for the enforced keysize check of CommonCrypto.
+                BLOWFISH_CTX ctx;
+                Blowfish_Init(&ctx, keyData, sizeof(keyData));
+                for (NSUInteger index = 0; index < count; index++) {
+                    BF_Decrypt_Block(&ctx, src, dest);
+
+                    src += PAGE_SIZE;
+                    dest += PAGE_SIZE;
+                }
+#endif
             } else if (magic == CDSegmentProtectedMagic_AES) {
-                AES_KEY key1, key2;
-
                 // 10.5 decryption
+                CCCryptorRef cryptor1, cryptor2;
+                CCCryptorStatus status;
 
-                AES_set_decrypt_key(keyData, 256, &key1);
-                AES_set_decrypt_key(keyData + 32, 256, &key2);
+                status = CCCryptorCreate(kCCDecrypt, kCCAlgorithmAES, 0, keyData,      32, NULL, &cryptor1);
+                NSParameterAssert(status == kCCSuccess);
+
+                status = CCCryptorCreate(kCCDecrypt, kCCAlgorithmAES, 0, keyData + 32, 32, NULL, &cryptor2);
+                NSParameterAssert(status == kCCSuccess);
+
+                size_t halfPageSize = PAGE_SIZE / 2;
 
                 for (NSUInteger index = 0; index < count; index++) {
-                    unsigned char iv1[AES_BLOCK_SIZE];
-                    unsigned char iv2[AES_BLOCK_SIZE];
+                    status = CCCryptorReset(cryptor1, NULL);
+                    NSParameterAssert(status == kCCSuccess);
 
-                    //NSLog(@"src = %08x, encrypted", src);
-                    memset(iv1, 0, AES_BLOCK_SIZE);
-                    memset(iv2, 0, AES_BLOCK_SIZE);
-                    AES_cbc_encrypt(src, dest, PAGE_SIZE / 2, &key1, iv1, AES_DECRYPT);
-                    AES_cbc_encrypt(src + PAGE_SIZE / 2, dest + PAGE_SIZE / 2, PAGE_SIZE / 2, &key2, iv2, AES_DECRYPT);
+                    status = CCCryptorReset(cryptor2, NULL);
+                    NSParameterAssert(status == kCCSuccess);
+
+                    size_t moved;
+
+                    status = CCCryptorUpdate(cryptor1, src,                halfPageSize, dest,                halfPageSize, &moved);
+                    NSParameterAssert(status == kCCSuccess);
+                    NSParameterAssert(moved == halfPageSize);
+
+                    status = CCCryptorUpdate(cryptor2, src + halfPageSize, halfPageSize, dest + halfPageSize, halfPageSize, &moved);
+                    NSParameterAssert(status == kCCSuccess);
+                    NSParameterAssert(moved == halfPageSize);
 
                     src += PAGE_SIZE;
                     dest += PAGE_SIZE;
                 }
+
+                CCCryptorRelease(cryptor1);
+                CCCryptorRelease(cryptor2);
             } else {
                 NSLog(@"Unknown encryption type: 0x%08x", magic);
                 exit(99);
             }
-            
-#pragma clang diagnostic pop
         }
     }
 

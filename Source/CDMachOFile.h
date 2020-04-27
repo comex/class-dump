@@ -1,7 +1,7 @@
 // -*- mode: ObjC -*-
 
 //  This file is part of class-dump, a utility for examining the Objective-C segment of Mach-O files.
-//  Copyright (C) 1997-1998, 2000-2001, 2004-2012 Steve Nygard.
+//  Copyright (C) 1997-2019 Steve Nygard.
 
 #import "CDFile.h"
 
@@ -14,7 +14,7 @@ typedef enum : NSUInteger {
 } CDByteOrder;
 
 @class CDLCSegment;
-@class CDLCDyldInfo, CDLCDylib, CDMachOFile, CDLCSymbolTable, CDLCDynamicSymbolTable, CDLCVersionMinimum, CDLCSourceVersion;
+@class CDLCBuildVersion, CDLCDyldInfo, CDLCDylib, CDMachOFile, CDLCSymbolTable, CDLCDynamicSymbolTable, CDLCVersionMinimum, CDLCSourceVersion;
 
 @interface CDMachOFile : CDFile
 
@@ -44,6 +44,7 @@ typedef enum : NSUInteger {
 @property (strong) CDLCVersionMinimum *minVersionMacOSX;
 @property (strong) CDLCVersionMinimum *minVersionIOS;
 @property (strong) CDLCSourceVersion *sourceVersion;
+@property (strong) CDLCBuildVersion *buildVersion;
 
 @property (readonly) BOOL uses64BitABI;
 - (NSUInteger)ptrSize;
@@ -51,6 +52,7 @@ typedef enum : NSUInteger {
 - (NSString *)filetypeDescription;
 - (NSString *)flagDescription;
 
+- (CDLCSegment *)dataConstSegment;
 - (CDLCSegment *)segmentWithName:(NSString *)segmentName;
 - (CDLCSegment *)segmentContainingAddress:(NSUInteger)address;
 - (NSString *)stringAtAddress:(NSUInteger)address;
@@ -69,7 +71,7 @@ typedef enum : NSUInteger {
 - (NSString *)loadCommandString:(BOOL)isVerbose;
 - (NSString *)headerString:(BOOL)isVerbose;
 
-@property (nonatomic, readonly) NSString *uuidString;
+@property (nonatomic, readonly) NSUUID *UUID;
 @property (nonatomic, readonly) NSString *archName;
 
 - (Class)processorClass;
@@ -81,6 +83,8 @@ typedef enum : NSUInteger {
 // Checks compressed dyld info on 10.6 or later.
 - (BOOL)hasRelocationEntryForAddress2:(NSUInteger)address;
 - (NSString *)externalClassNameForAddress2:(NSUInteger)address;
+
+- (CDLCDylib *)dylibLoadCommandForLibraryOrdinal:(NSUInteger)ordinal;
 
 @property (nonatomic, readonly) BOOL hasObjectiveC1Data;
 @property (nonatomic, readonly) BOOL hasObjectiveC2Data;
